@@ -1,0 +1,41 @@
+name: CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build-test-docs:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Use Node.js 18
+        uses: actions/setup-node@v3
+        with:
+          node-version: 18
+      - name: Install dependencies
+        run: npm ci
+      - name: Run tests
+        run: npm test
+      - name: Start app
+        run: npm run build && npm run start &
+        env:
+          NODE_ENV: production
+      - name: Wait for app
+        run: npx wait-on http://localhost:3000
+      - name: Generate docs with OpenAI
+        run: node scripts/generate-docs.js
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+      - name: Run Playwright screenshots
+        run: npx playwright test tests/screenshots.spec.ts
+      - name: Upload docs and screenshots
+        uses: actions/upload-artifact@v3
+        with:
+          name: docs-and-screenshots
+          path: |
+            README.md
+            USER_GUIDE.md
+            docs/screenshots/ 

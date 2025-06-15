@@ -8,7 +8,12 @@ module.exports = {
   testPathIgnorePatterns: ['<rootDir>/.next/', '<rootDir>/node_modules/'],
   transform: {
     '^.+\\.(ts|tsx)$': ['ts-jest', {
-      tsconfig: 'tsconfig.json',
-    }],
+      tsconfig: 'tsconfig.json'
+    }]
   },
+  moduleFileExtensions: ['ts', 'tsx', 'js', 'jsx', 'json', 'node'],
+  testMatch: ['**/tests/jest/**/*.[jt]s?(x)'],
+  transformIgnorePatterns: [
+    '/node_modules/(?!(@testing-library|@babel)/)'
+  ]
 }; 

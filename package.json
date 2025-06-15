@@ -1,25 +1,33 @@
 {
   "name": "chronoquill-inkling",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Core To-Do & Calendar functionalities",
   "scripts": {
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "test": "jest",
+    "test": "jest --runInBand --config jest.config.js",
+    "test:e2e": "playwright test",
     "docs": "node scripts/generate-docs.js",
+    "docs:generate": "node scripts/generate-docs.js",
+    "test:screenshots": "npx playwright test tests/screenshots.spec.ts",
     "release": "node scripts/release.js"
   },
   "dependencies": {
     "date-fns": "^2.30.0",
+    "fs-extra": "^11.3.0",
     "next": "14.1.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0"
   },
   "devDependencies": {
-    "@testing-library/jest-dom": "^6.6.3",
-    "@testing-library/react": "^16.3.0",
+    "@babel/preset-env": "^7.27.2",
+    "@babel/preset-react": "^7.27.1",
+    "@babel/preset-typescript": "^7.27.1",
+    "@playwright/test": "^1.53.0",
+    "@testing-library/jest-dom": "^5.16.5",
+    "@testing-library/react": "^14.2.1",
     "@types/jest": "^29.5.14",
     "@types/node": "^20.11.19",
     "@types/react": "^18.2.57",

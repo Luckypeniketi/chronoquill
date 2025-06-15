@@ -1,121 +1,44 @@
-const { chromium } = require('playwright');
-const fs = require('fs').promises;
+// scripts/generate-docs.js
+// Usage: node scripts/generate-docs.js
+// Requires: npm install openai glob
+
+const fs = require('fs');
 const path = require('path');
-const { execSync } = require('child_process');
-const OpenAI = require('openai');
+const { Configuration, OpenAIApi } = require('openai');
+const glob = require('glob');
 
-// Initialize OpenAI
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
+// Insert your OpenAI API key here
+const configuration = new Configuration({
+  apiKey: process.env.OPENAI_API_KEY || 'YOUR_OPENAI_API_KEY',
 });
+const openai = new OpenAIApi(configuration);
 
-async function runTestsAndCaptureScreenshots() {
-  const browser = await chromium.launch();
-  const context = await browser.newContext();
-  const page = await context.newPage();
-
-  // Navigate to the app
-  await page.goto('http://localhost:3000');
-  
-  // Take screenshots of key interactions
-  const screenshots = [];
-  
-  // Screenshot 1: Initial state
-  await page.screenshot({ path: 'screenshots/initial-state.png' });
-  screenshots.push({
-    name: 'Initial State',
-    path: 'screenshots/initial-state.png'
-  });
-
-  // Screenshot 2: Adding a task
-  await page.click('button:has-text("Add Task")');
-  await page.fill('input[placeholder="Enter task..."]', 'Test Task');
-  await page.click('button:has-text("Add Task")');
-  await page.screenshot({ path: 'screenshots/add-task.png' });
-  screenshots.push({
-    name: 'Adding a Task',
-    path: 'screenshots/add-task.png'
-  });
-
-  // Screenshot 3: Task in calendar
-  await page.screenshot({ path: 'screenshots/task-in-calendar.png' });
-  screenshots.push({
-    name: 'Task in Calendar',
-    path: 'screenshots/task-in-calendar.png'
-  });
-
-  await browser.close();
-  return screenshots;
+function readFiles(pattern) {
+  return glob.sync(pattern).map(file => ({
+    file,
+    content: fs.readFileSync(file, 'utf-8')
+  }));
 }
 
-async function generateDocumentation(screenshots) {
-  // Read package.json for version
-  const packageJson = JSON.parse(await fs.readFile('package.json', 'utf8'));
-  const version = packageJson.version;
-
-  // Create docs directory if it doesn't exist
-  const docsDir = path.join('docs', `v${version}`);
-  await fs.mkdir(docsDir, { recursive: true });
-
-  // Prepare screenshots for OpenAI
-  const screenshotDescriptions = screenshots.map(s => 
-    `Screenshot "${s.name}" shows: ${s.path}`
-  ).join('\n');
-
-  // Generate documentation using OpenAI
-  const completion = await openai.chat.completions.create({
-    model: "gpt-4",
-    messages: [
-      {
-        role: "system",
-        content: "You are a technical writer creating user documentation for ChronoQuill AI."
-      },
-      {
-        role: "user",
-        content: `Please create a comprehensive user guide for ChronoQuill AI version ${version}. 
-        Include sections for:
-        1. Introduction
-        2. Features
-        3. Getting Started
-        4. Task Management
-        5. Calendar View
-        6. Version History
-        
-        Use these screenshots as reference:
-        ${screenshotDescriptions}`
-      }
-    ]
+async function generateDoc(prompt, filename) {
+  const response = await openai.createChatCompletion({
+    model: 'gpt-4',
+    messages: [{ role: 'user', content: prompt }],
+    max_tokens: 2048
   });
-
-  const documentation = completion.choices[0].message.content;
-
-  // Write documentation to file
-  await fs.writeFile(
-    path.join(docsDir, 'user-guide.md'),
-    documentation
-  );
-
-  // Commit changes
-  execSync('git add docs/');
-  execSync(`git commit -m "docs: update documentation for v${version}"`);
+  fs.writeFileSync(filename, response.data.choices[0].message.content);
+  console.log(`Generated ${filename}`);
 }
 
 async function main() {
-  try {
-    // Create screenshots directory
-    await fs.mkdir('screenshots', { recursive: true });
+  const releaseNotes = fs.existsSync('RELEASE_NOTES.md') ? fs.readFileSync('RELEASE_NOTES.md', 'utf-8') : '';
+  const codeFiles = readFiles('src/**/*.ts*').map(f => `File: ${f.file}\n${f.content}`).join('\n\n');
 
-    // Run tests and capture screenshots
-    const screenshots = await runTestsAndCaptureScreenshots();
+  const readmePrompt = `You are an expert technical writer. Given the following codebase and release notes, generate a concise, clear README.md for the project.\n\nRelease Notes:\n${releaseNotes}\n\nCodebase:\n${codeFiles}`;
+  await generateDoc(readmePrompt, 'README.md');
 
-    // Generate documentation
-    await generateDocumentation(screenshots);
-
-    console.log('Documentation generated successfully!');
-  } catch (error) {
-    console.error('Error generating documentation:', error);
-    process.exit(1);
-  }
+  const userGuidePrompt = `You are an expert in user education. Given the following codebase and release notes, generate a detailed USER_GUIDE.md for end users.\n\nRelease Notes:\n${releaseNotes}\n\nCodebase:\n${codeFiles}`;
+  await generateDoc(userGuidePrompt, 'USER_GUIDE.md');
 }
 
 main(); 
